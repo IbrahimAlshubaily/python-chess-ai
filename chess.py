@@ -17,8 +17,15 @@ class ChessPiece:
             for step in range(1, self.nSteps+1):
                 currRow = currPosition.row + dir.rowOffset * step
                 currCol = currPosition.col + dir.colOffset * step
-                if min(currRow, currCol) >= 0 and max(currRow, currCol) < 8:
+                if min(currRow, currCol) < 0 or max(currRow, currCol) > 7:
+                    break
+
+                other = board[currRow][currCol]
+                if other is None or (self.__repr__().islower() != other.__repr__().islower()):
                     result.append(Position(currRow , currCol))
+                
+                if other is not None:
+                    break
         return result
     
     def __repr__(self) -> str:
@@ -48,6 +55,7 @@ class ChessBoard(tk.Tk):
 
         self.cellSize = 75
         self.selectedCell = None
+        self.move_suggestions = []
         self.positions = self.getPositions()
         self.init_pieces()
         self.update()
@@ -73,6 +81,12 @@ class ChessBoard(tk.Tk):
 
         for i in range(1, 10):
             self.canvas.create_line(i * self.cellSize, self.cellSize, i * self.cellSize, self.cellSize + windowSize)
+        
+    def draw_suggestions(self):
+        for suggestion in self.move_suggestions:
+            col = (suggestion.col + 1) * self.cellSize
+            row = (suggestion.row + 1) * self.cellSize
+            self.canvas.create_rectangle(col, row, col + self.cellSize, row + self.cellSize, outline="#fb0", fill="#fb0")
 
     def init_pieces(self):
         self.pieces = {}
@@ -101,28 +115,35 @@ class ChessBoard(tk.Tk):
         clickPosition = Position(row, col)
         if self.selectedCell is None:
             self.selectedCell = clickPosition
+            self.move_suggestions = self.getMoves(clickPosition)
+            self.draw_suggestions()
             return
+        self.move_suggestions = []
         self.movePeice(self.selectedCell, clickPosition)
         self.selectedCell = None
         
     def movePeice(self, origin: Position, destination: Position):
+        if origin.row == destination.row and origin.col == destination.col:
+            self.move_suggestions = []
+            self.update()
+            return
+        
         self.board[destination.row][destination.col] = self.board[origin.row][origin.col]
         self.board[origin.row][origin.col] = None
         self.positions = self.getPositions()
         self.update()
 
     def getMoves(self, position: Position) -> list:
-        return self.board[position.row][position.col].getMoves(board, position)
+        return self.board[position.row][position.col].getMoves(self.board, position)
     
     def update(self) -> None:
         super().update()
         self.canvas.delete(tk.ALL)
         self.draw_grid()
+        self.draw_suggestions()
         for repr in self.positions:
             for pos in self.positions[repr]:
                 self.canvas.create_image(pos.col + 8,pos.row + 8,anchor=tk.NW,image=self.pieces[repr] )
 
-
 if __name__ == "__main__":
     board = ChessBoard()
-    
