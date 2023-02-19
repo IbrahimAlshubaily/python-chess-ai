@@ -1,8 +1,6 @@
-from collections import namedtuple
 import tkinter as tk
-from PIL import ImageTk
-from tkinter import *
 from PIL import Image,ImageTk
+from collections import namedtuple
 
 Position = namedtuple("Position", "row col")
 Direction = namedtuple("Direction", "rowOffset colOffset")
@@ -26,35 +24,10 @@ class ChessPiece:
     def __repr__(self) -> str:
         return self.repr
 
-class GUI(tk.Tk):
-    def __init__(self, positions, *args, **kwargs):
+class ChessBoard(tk.Tk):
+    def __init__(self, *args, **kwargs) -> None:
         tk.Tk.__init__(self, *args, **kwargs)
-        self.geometry("1000x1500")
-        self.canvas = tk.Canvas(self, width=1000, height=1500)
-        self.canvas.pack()
-        self.positions = positions
-        self.init_pieces()
-        self.mainloop()
 
-    def init_pieces(self):
-        self.pieces = {}
-        for repr in self.positions:
-            self.pieces[repr] = ImageTk.PhotoImage(Image.open("./imgs/"+repr+".png"))
-            
-
-    def mainloop(self, n: int = 0) -> None:
-
-        for repr in self.positions:
-            for pos in self.positions[repr]:
-                print(repr, pos)
-                self.canvas.create_image(pos.col,pos.row,anchor=NW,image=self.pieces[repr] )
-        
-        return super().mainloop(n)
-
-
-class ChessBoard:
-    def __init__(self) -> None:
-        
         self.pieceDirection = {
             "p": [Direction(1, 0)],
             "r": [Direction(1, 0), Direction(-1, 0), Direction(0, 1), Direction(0, -1)],
@@ -67,7 +40,18 @@ class ChessBoard:
 
         self.nSteps = {"p": 1, "r": 8, "b": 8, "n": 1, "q": 8, "k": 1}
         self.board = self.initBoard()
-        self.gui = GUI(self.getPositions())
+        
+        self.geometry("1000x1500")
+        self.canvas = tk.Canvas(self, width=1000, height=1500)
+        self.canvas.pack()
+        self.canvas.bind("<1>", self.clickHandler)
+
+        self.cellSize = 75
+        self.selectedCell = None
+        self.positions = self.getPositions()
+        self.init_pieces()
+        self.update()
+        self.mainloop()
 
     def initBoard(self):
         fen = "rnbkqbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBKQBNR"
@@ -82,28 +66,62 @@ class ChessBoard:
                     col += 1
         return board 
     
+    def draw_grid(self):
+        windowSize = self.cellSize *8
+        for i in range(1, 10):
+            self.canvas.create_line(self.cellSize, i * self.cellSize, self.cellSize + windowSize, i * self.cellSize)
+
+        for i in range(1, 10):
+            self.canvas.create_line(i * self.cellSize, self.cellSize, i * self.cellSize, self.cellSize + windowSize)
+
+    def init_pieces(self):
+        self.pieces = {}
+        for repr in self.positions:
+            self.pieces[repr] = ImageTk.PhotoImage(Image.open("./imgs/"+repr+".png"))
+
     def getPositions(self):
         out = {}
         for i, row in enumerate(self.board):
             for j, cell in enumerate(row):
                 if cell != None:
                     rpr = cell.__repr__() if cell.__repr__().islower() else "w"+cell.__repr__().lower()
-                    pos = Position((i+1)*75, (j+1)*75)
+                    pos = Position((i+1)*self.cellSize, (j+1)*self.cellSize)
                     if rpr in out:
                         out[rpr].append(pos)
                     else:
                         out[rpr] = [pos]
         return out
 
+    def clickHandler(self, event):
+        col = (event.x // self.cellSize) - 1
+        row = (event.y // self.cellSize) - 1
+        if max(row, col) > 7 or min(row,col) < 0:
+            return
+        
+        clickPosition = Position(row, col)
+        if self.selectedCell is None:
+            self.selectedCell = clickPosition
+            return
+        self.movePeice(self.selectedCell, clickPosition)
+        self.selectedCell = None
+        
     def movePeice(self, origin: Position, destination: Position):
         self.board[destination.row][destination.col] = self.board[origin.row][origin.col]
         self.board[origin.row][origin.col] = None
+        self.positions = self.getPositions()
+        self.update()
 
     def getMoves(self, position: Position) -> list:
         return self.board[position.row][position.col].getMoves(board, position)
+    
+    def update(self) -> None:
+        super().update()
+        self.canvas.delete(tk.ALL)
+        self.draw_grid()
+        for repr in self.positions:
+            for pos in self.positions[repr]:
+                self.canvas.create_image(pos.col + 8,pos.row + 8,anchor=tk.NW,image=self.pieces[repr] )
 
-    def display(self) -> None:
-        [print(row) for row in self.board]
 
 if __name__ == "__main__":
     board = ChessBoard()
