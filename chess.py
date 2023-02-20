@@ -35,6 +35,7 @@ class ChessBoard(tk.Tk):
     def __init__(self, *args, **kwargs) -> None:
         tk.Tk.__init__(self, *args, **kwargs)
 
+        self.pieceSteps = {"p": 1, "r": 8, "b": 8, "n": 1, "q": 8, "k": 1}
         self.pieceDirection = {
             "p": [Direction(1, 0)],
             "r": [Direction(1, 0), Direction(-1, 0), Direction(0, 1), Direction(0, -1)],
@@ -45,19 +46,17 @@ class ChessBoard(tk.Tk):
         self.pieceDirection["q"] = self.pieceDirection["r"] + self.pieceDirection["b"] 
         self.pieceDirection["k"] = self.pieceDirection["q"]
 
-        self.nSteps = {"p": 1, "r": 8, "b": 8, "n": 1, "q": 8, "k": 1}
+        self.cellSize = 75
         self.board = self.initBoard()
+        self.positions = self.getPositions()
+        self.pieces = self.init_pieces()
+        self.selectedCell = None
+        self.move_suggestions = []
         
         self.geometry("1000x1500")
         self.canvas = tk.Canvas(self, width=1000, height=1500)
         self.canvas.pack()
         self.canvas.bind("<1>", self.clickHandler)
-
-        self.cellSize = 75
-        self.selectedCell = None
-        self.move_suggestions = []
-        self.positions = self.getPositions()
-        self.init_pieces()
         self.update()
         self.mainloop()
 
@@ -70,28 +69,24 @@ class ChessBoard(tk.Tk):
                 if (ch.isdigit()):
                     col += int(ch)
                 else:
-                    board[row][col] = ChessPiece(ch, self.pieceDirection[ch.lower()], self.nSteps[ch.lower()])
+                    board[row][col] = ChessPiece(ch, self.pieceDirection[ch.lower()], self.pieceSteps[ch.lower()])
                     col += 1
         return board 
     
+    def init_pieces(self):
+        return {repr: ImageTk.PhotoImage(Image.open("./imgs/"+repr+".png")) for repr in self.positions}
+    
     def draw_grid(self):
-        windowSize = self.cellSize *8
+        windowSize = self.cellSize * 8
         for i in range(1, 10):
             self.canvas.create_line(self.cellSize, i * self.cellSize, self.cellSize + windowSize, i * self.cellSize)
-
-        for i in range(1, 10):
             self.canvas.create_line(i * self.cellSize, self.cellSize, i * self.cellSize, self.cellSize + windowSize)
-        
+
     def draw_suggestions(self):
         for suggestion in self.move_suggestions:
             col = (suggestion.col + 1) * self.cellSize
             row = (suggestion.row + 1) * self.cellSize
             self.canvas.create_rectangle(col, row, col + self.cellSize, row + self.cellSize, outline="#fb0", fill="#fb0")
-
-    def init_pieces(self):
-        self.pieces = {}
-        for repr in self.positions:
-            self.pieces[repr] = ImageTk.PhotoImage(Image.open("./imgs/"+repr+".png"))
 
     def getPositions(self):
         out = {}
@@ -109,29 +104,21 @@ class ChessBoard(tk.Tk):
     def clickHandler(self, event):
         col = (event.x // self.cellSize) - 1
         row = (event.y // self.cellSize) - 1
-        if max(row, col) > 7 or min(row,col) < 0:
-            return
+        if max(row, col) < 8 and min(row,col)  >= 0:
+            clickPosition = Position(row, col)
+            if self.selectedCell is None:
+                self.selectedCell = clickPosition
+                self.move_suggestions = self.getMoves(clickPosition)
+            else:
+                self.movePeice(self.selectedCell, clickPosition)
+                self.positions = self.getPositions()
+                self.selectedCell = None
+                self.move_suggestions = []
+        self.update()
         
-        clickPosition = Position(row, col)
-        if self.selectedCell is None:
-            self.selectedCell = clickPosition
-            self.move_suggestions = self.getMoves(clickPosition)
-            self.draw_suggestions()
-            return
-        self.move_suggestions = []
-        self.movePeice(self.selectedCell, clickPosition)
-        self.selectedCell = None
-        
-    def movePeice(self, origin: Position, destination: Position):
-        if origin.row == destination.row and origin.col == destination.col:
-            self.move_suggestions = []
-            self.update()
-            return
-        
+    def movePeice(self, origin: Position, destination: Position):        
         self.board[destination.row][destination.col] = self.board[origin.row][origin.col]
         self.board[origin.row][origin.col] = None
-        self.positions = self.getPositions()
-        self.update()
 
     def getMoves(self, position: Position) -> list:
         return self.board[position.row][position.col].getMoves(self.board, position)
@@ -143,7 +130,7 @@ class ChessBoard(tk.Tk):
         self.draw_suggestions()
         for repr in self.positions:
             for pos in self.positions[repr]:
-                self.canvas.create_image(pos.col + 8,pos.row + 8,anchor=tk.NW,image=self.pieces[repr] )
+                self.canvas.create_image(pos.col + 8,pos.row + 8,anchor=tk.NW,image=self.pieces[repr] ) 
 
 if __name__ == "__main__":
     board = ChessBoard()
