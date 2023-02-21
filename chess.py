@@ -6,35 +6,64 @@ Position = namedtuple("Position", "row col")
 Direction = namedtuple("Direction", "rowOffset colOffset")
 
 class ChessPiece:
-    def __init__(self, repr: str, move_directions: list, nSteps: int) -> None:
-        self.repr = repr
+    def __init__(self, symbol: str, move_directions: list, nSteps: int) -> None:
+        self.symbol = symbol
         self.nSteps = nSteps
         self.move_directions = move_directions
+        
+        self.getMoves = self.getPawnMoves if symbol.lower() == "p" else self.getMoves_
 
-    def getMoves(self, board: list, currPosition: Position):
+    def isOpponent(self, other):
+        return self.__repr__().islower() != other.__repr__().islower()
+    
+    def getMoves_(self, board: list, currPosition: Position):
         result = []
-        for dir in self.move_directions:
+        for direction in self.move_directions:
             for step in range(1, self.nSteps+1):
-                currRow = currPosition.row + dir.rowOffset * step
-                currCol = currPosition.col + dir.colOffset * step
+                currRow = currPosition.row + direction.rowOffset * step
+                currCol = currPosition.col + direction.colOffset * step
                 if min(currRow, currCol) < 0 or max(currRow, currCol) > 7:
                     break
 
                 other = board[currRow][currCol]
-                if other is None or (self.__repr__().islower() != other.__repr__().islower()):
+                if other is None or self.isOpponent(other):
                     result.append(Position(currRow , currCol))
                 
                 if other is not None:
                     break
         return result
+    def getPawnMoves(self, board: list, currPosition: Position):
+        result = []
+        rowOffset = 1 if self.symbol.islower() else -1
+        forward = Position(currPosition.row + rowOffset, currPosition.col)
+        
+        if board[forward.row][forward.col] == None:
+            result.append(forward)
+        if (currPosition.row == 1 and self.symbol.islower()) or (currPosition.row == 6 and not self.symbol.islower()):
+            towStepsForward = Position(currPosition.row + (2*rowOffset), currPosition.col)
+            if board[towStepsForward.row][towStepsForward.col] == None:
+                result.append(towStepsForward)
+        
+        forwardLeft = Position(currPosition.row + rowOffset, currPosition.col + 1)
+        if currPosition.col < 7 and board[forwardLeft.row][forwardLeft.col] != None and self.isOpponent(board[forwardLeft.row][forwardLeft.col]):
+            result.append(forwardLeft)
+        forwardRight = Position(currPosition.row + rowOffset, currPosition.col - 1)
+        if currPosition.col > 0 and board[forwardRight.row][forwardRight.col] != None and self.isOpponent(board[forwardRight.row][forwardRight.col]):
+            result.append(forwardRight)
+        
+        return result
+
     
     def __repr__(self) -> str:
-        return self.repr
+        return self.symbol
 
 class ChessBoard(tk.Tk):
     def __init__(self, *args, **kwargs) -> None:
         tk.Tk.__init__(self, *args, **kwargs)
-
+        self.initChess()
+        self.initChessGUI()
+        
+    def initChess(self):
         self.pieceSteps = {"p": 1, "r": 8, "b": 8, "n": 1, "q": 8, "k": 1}
         self.pieceDirection = {
             "p": [Direction(1, 0)],
@@ -47,12 +76,14 @@ class ChessBoard(tk.Tk):
         self.pieceDirection["k"] = self.pieceDirection["q"]
 
         self.cellSize = 75
+        self.isBlackTurn = True
         self.board = self.initBoard()
         self.positions = self.getPositions()
         self.pieces = self.init_pieces()
         self.selectedCell = None
         self.move_suggestions = []
-        
+
+    def initChessGUI(self):
         self.geometry("1000x1500")
         self.canvas = tk.Canvas(self, width=1000, height=1500)
         self.canvas.pack()
@@ -104,14 +135,17 @@ class ChessBoard(tk.Tk):
     def clickHandler(self, event):
         col = (event.x // self.cellSize) - 1
         row = (event.y // self.cellSize) - 1
-        if max(row, col) < 8 and min(row,col)  >= 0:
+        if  0 <= row < 8 and 0 <= col < 8:
             clickPosition = Position(row, col)
-            if self.selectedCell is None:
+            piece = self.board[clickPosition.row][clickPosition.col]
+            if self.selectedCell is None and piece != None and piece.__repr__().islower() == self.isBlackTurn:
                 self.selectedCell = clickPosition
                 self.move_suggestions = self.getMoves(clickPosition)
             else:
-                self.movePeice(self.selectedCell, clickPosition)
-                self.positions = self.getPositions()
+                if clickPosition in self.move_suggestions:
+                    self.movePeice(self.selectedCell, clickPosition)
+                    self.isBlackTurn = not self.isBlackTurn
+                    self.positions = self.getPositions()
                 self.selectedCell = None
                 self.move_suggestions = []
         self.update()
