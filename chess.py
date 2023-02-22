@@ -2,9 +2,11 @@ import tkinter as tk
 from PIL import Image,ImageTk
 from collections import namedtuple
 
+from MinMax import eval_moves
+
 Position = namedtuple("Position", "row col")
 Direction = namedtuple("Direction", "rowOffset colOffset")
-
+Move = namedtuple("Move", "origin destination")
 class ChessPiece:
     def __init__(self, symbol: str, move_directions: list, nSteps: int) -> None:
         self.symbol = symbol
@@ -82,6 +84,7 @@ class ChessBoard(tk.Tk):
         self.pieces = self.init_pieces()
         self.selectedCell = None
         self.move_suggestions = []
+        self.bestMove = None
 
     def initChessGUI(self):
         self.geometry("1000x1500")
@@ -118,7 +121,16 @@ class ChessBoard(tk.Tk):
             col = (suggestion.col + 1) * self.cellSize
             row = (suggestion.row + 1) * self.cellSize
             self.canvas.create_rectangle(col, row, col + self.cellSize, row + self.cellSize, outline="#fb0", fill="#fb0")
-
+        
+        if self.bestMove is None:
+            return
+        
+        for position in [self.bestMove.origin, self.bestMove.destination]:
+            col = (position.col + 1) * self.cellSize
+            row = (position.row + 1) * self.cellSize
+            self.canvas.create_rectangle(col, row, col + self.cellSize, row + self.cellSize, fill="green")
+        
+        
     def getPositions(self):
         out = {}
         for i, row in enumerate(self.board):
@@ -140,22 +152,36 @@ class ChessBoard(tk.Tk):
             piece = self.board[clickPosition.row][clickPosition.col]
             if self.selectedCell is None and piece != None and piece.__repr__().islower() == self.isBlackTurn:
                 self.selectedCell = clickPosition
-                self.move_suggestions = self.getMoves(clickPosition)
+                self.move_suggestions = self.getMoves(self.board, clickPosition)
             else:
                 if clickPosition in self.move_suggestions:
-                    self.movePeice(self.selectedCell, clickPosition)
+                    self.movePeice(self.board, Move(self.selectedCell, clickPosition))
                     self.isBlackTurn = not self.isBlackTurn
                     self.positions = self.getPositions()
+                    self.bestMove = eval_moves(self.board, self.isBlackTurn, self.getlAllMoves, self.movePeice)
                 self.selectedCell = None
                 self.move_suggestions = []
         self.update()
         
-    def movePeice(self, origin: Position, destination: Position):        
-        self.board[destination.row][destination.col] = self.board[origin.row][origin.col]
-        self.board[origin.row][origin.col] = None
+    def movePeice(self, board: list, move: Move):        
+        board[move.destination.row][move.destination.col] = board[move.origin.row][move.origin.col]
+        board[move.origin.row][move.origin.col] = None
 
-    def getMoves(self, position: Position) -> list:
-        return self.board[position.row][position.col].getMoves(self.board, position)
+    
+    def getlAllMoves(self, board, isBlackTurn: bool) -> list:
+        allMoves = []
+        for i, row in enumerate(board):
+            for j, cell in enumerate(row):
+                if cell != None and (isBlackTurn == cell.__repr__().islower()):
+                    origin = Position(i, j)
+                    for destination in self.getMoves(board, origin):
+                        allMoves.append(Move(origin, destination))
+        return allMoves
+
+                
+        
+    def getMoves(self, board, position: Position) -> list:
+        return board[position.row][position.col].getMoves(board, position)
     
     def update(self) -> None:
         super().update()
