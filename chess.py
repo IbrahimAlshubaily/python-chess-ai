@@ -1,7 +1,7 @@
 import tkinter as tk
 from PIL import Image,ImageTk
 from collections import namedtuple
-
+import random
 from MinMax import eval_moves
 
 Position = namedtuple("Position", "row col")
@@ -84,7 +84,7 @@ class ChessBoard(tk.Tk):
         self.pieces = self.init_pieces()
         self.selectedCell = None
         self.move_suggestions = []
-        self.bestMove = None
+        self.bestMove = eval_moves(self.board, self.isBlackTurn, self.getlAllMoves, self.movePeice)
 
     def initChessGUI(self):
         self.geometry("1000x1500")
@@ -176,6 +176,7 @@ class ChessBoard(tk.Tk):
                     origin = Position(i, j)
                     for destination in self.getMoves(board, origin):
                         allMoves.append(Move(origin, destination))
+        random.shuffle(allMoves)
         return allMoves
 
                 
