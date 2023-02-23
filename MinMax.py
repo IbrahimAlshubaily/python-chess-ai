@@ -1,22 +1,8 @@
 
 import copy
 
-def eval_moves(board: list, isBlackTurn: bool, getAllMoves, movePeice, depth = 3) -> list:
-    #if isBlackTurn:
+def get_best_move(board: list, isBlackTurn: bool, getAllMoves, movePeice, depth = 3) -> list:
     return max(board, isBlackTurn, getAllMoves, movePeice, depth)[1]
-    #return min(board, isBlackTurn, getAllMoves, movePeice, depth)[1]
-    result = {}
-    bestMove = None
-    bestScore =  - float("inf")
-    for move in getAllMoves(board, isBlackTurn):
-        boardCopy = copy.deepcopy(board)
-        movePeice(boardCopy, move)
-        result[move] = min(boardCopy, isBlackTurn, getAllMoves, movePeice, depth - 1)
-        if result[move] > bestScore:
-            bestScore = result[move]
-            bestMove = move
-
-    return bestMove
 
 
 
@@ -28,7 +14,7 @@ def max(board: list, isBlackTurn: bool, getAllMoves, movePeice, depth: int) -> i
     bestMove = None
     for move in getAllMoves(board, isBlackTurn):
         boardCopy = copy.deepcopy(board)
-        movePeice(boardCopy, move)
+        movePeice(move, boardCopy)
         moveScore, _ = min(boardCopy, not isBlackTurn, getAllMoves, movePeice, depth-1)
         if moveScore > maxScore:
             maxScore = moveScore
@@ -43,7 +29,7 @@ def min(board: list, isBlackTurn: bool, getAllMoves, movePeice, depth: int) -> i
     bestMove = None
     for move in getAllMoves(board, isBlackTurn):
         boardCopy = copy.deepcopy(board)
-        movePeice(boardCopy, move)
+        movePeice(move, boardCopy)
         moveScore, _ = max(boardCopy, not isBlackTurn, getAllMoves, movePeice, depth-1)
         if moveScore < minScore:
             minScore = moveScore          

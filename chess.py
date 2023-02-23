@@ -2,7 +2,7 @@ import tkinter as tk
 from PIL import Image,ImageTk
 from collections import namedtuple
 import random
-from MinMax import eval_moves
+from MinMax import get_best_move
 
 Position = namedtuple("Position", "row col")
 Direction = namedtuple("Direction", "rowOffset colOffset")
@@ -34,6 +34,7 @@ class ChessPiece:
                 if other is not None:
                     break
         return result
+    
     def getPawnMoves(self, board: list, currPosition: Position):
         result = []
         rowOffset = 1 if self.symbol.islower() else -1
@@ -59,34 +60,19 @@ class ChessPiece:
     def __repr__(self) -> str:
         return self.symbol
 
-class ChessBoard(tk.Tk):
+class ChessGame(tk.Tk):
     def __init__(self, *args, **kwargs) -> None:
         tk.Tk.__init__(self, *args, **kwargs)
-        self.initChess()
-        self.initChessGUI()
-        
-    def initChess(self):
-        self.pieceSteps = {"p": 1, "r": 8, "b": 8, "n": 1, "q": 8, "k": 1}
-        self.pieceDirection = {
-            "p": [Direction(1, 0)],
-            "r": [Direction(1, 0), Direction(-1, 0), Direction(0, 1), Direction(0, -1)],
-            "b": [Direction(1, 1), Direction(-1, 1), Direction(1, -1), Direction(-1, -1)],
-            "n": [Direction(2, 1), Direction(-2, 1), Direction(2, -1), Direction(-2, -1),
-                  Direction(1, 2), Direction(-1, 2), Direction(1, -2), Direction(-1, -2)],
-        }
-        self.pieceDirection["q"] = self.pieceDirection["r"] + self.pieceDirection["b"] 
-        self.pieceDirection["k"] = self.pieceDirection["q"]
 
+        self.chessBoard = ChessBoard()
         self.cellSize = 75
-        self.isBlackTurn = True
-        self.board = self.initBoard()
-        self.positions = self.getPositions()
-        self.pieces = self.init_pieces()
+
         self.selectedCell = None
         self.move_suggestions = []
-        self.bestMove = eval_moves(self.board, self.isBlackTurn, self.getlAllMoves, self.movePeice)
+        self.positions = self.getPositions()
+        self.pieces = self.init_pieces()
+        self.bestMove = self.chessBoard.getBestMove()
 
-    def initChessGUI(self):
         self.geometry("1000x1500")
         self.canvas = tk.Canvas(self, width=1000, height=1500)
         self.canvas.pack()
@@ -94,22 +80,6 @@ class ChessBoard(tk.Tk):
         self.update()
         self.mainloop()
 
-    def initBoard(self):
-        fen = "rnbkqbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBKQBNR"
-        board = [[None] * 8 for _ in range(8)]
-        for row, row_fen in enumerate(fen.split("/")):
-            col = 0
-            for ch in row_fen:
-                if (ch.isdigit()):
-                    col += int(ch)
-                else:
-                    board[row][col] = ChessPiece(ch, self.pieceDirection[ch.lower()], self.pieceSteps[ch.lower()])
-                    col += 1
-        return board 
-    
-    def init_pieces(self):
-        return {repr: ImageTk.PhotoImage(Image.open("./imgs/"+repr+".png")) for repr in self.positions}
-    
     def draw_grid(self):
         windowSize = self.cellSize * 8
         for i in range(1, 10):
@@ -129,11 +99,13 @@ class ChessBoard(tk.Tk):
             col = (position.col + 1) * self.cellSize
             row = (position.row + 1) * self.cellSize
             self.canvas.create_rectangle(col, row, col + self.cellSize, row + self.cellSize, fill="green")
-        
-        
+    
+    def init_pieces(self):
+        return {repr: ImageTk.PhotoImage(Image.open("./imgs/"+repr+".png")) for repr in self.positions}
+    
     def getPositions(self):
         out = {}
-        for i, row in enumerate(self.board):
+        for i, row in enumerate(self.chessBoard.board):
             for j, cell in enumerate(row):
                 if cell != None:
                     rpr = cell.__repr__() if cell.__repr__().islower() else "w"+cell.__repr__().lower()
@@ -149,40 +121,18 @@ class ChessBoard(tk.Tk):
         row = (event.y // self.cellSize) - 1
         if  0 <= row < 8 and 0 <= col < 8:
             clickPosition = Position(row, col)
-            piece = self.board[clickPosition.row][clickPosition.col]
-            if self.selectedCell is None and piece != None and piece.__repr__().islower() == self.isBlackTurn:
+            piece = self.chessBoard.board[clickPosition.row][clickPosition.col]
+            if self.selectedCell is None and piece != None and piece.__repr__().islower() == self.chessBoard.isBlackTurn:
                 self.selectedCell = clickPosition
-                self.move_suggestions = self.getMoves(self.board, clickPosition)
+                self.move_suggestions = self.chessBoard.getMoves(clickPosition)
             else:
                 if clickPosition in self.move_suggestions:
-                    self.movePeice(self.board, Move(self.selectedCell, clickPosition))
-                    self.isBlackTurn = not self.isBlackTurn
+                    self.chessBoard.movePeice(Move(self.selectedCell, clickPosition))
                     self.positions = self.getPositions()
-                    self.bestMove = eval_moves(self.board, self.isBlackTurn, self.getlAllMoves, self.movePeice)
+                    self.bestMove = self.chessBoard.getBestMove()
                 self.selectedCell = None
                 self.move_suggestions = []
         self.update()
-        
-    def movePeice(self, board: list, move: Move):        
-        board[move.destination.row][move.destination.col] = board[move.origin.row][move.origin.col]
-        board[move.origin.row][move.origin.col] = None
-
-    
-    def getlAllMoves(self, board, isBlackTurn: bool) -> list:
-        allMoves = []
-        for i, row in enumerate(board):
-            for j, cell in enumerate(row):
-                if cell != None and (isBlackTurn == cell.__repr__().islower()):
-                    origin = Position(i, j)
-                    for destination in self.getMoves(board, origin):
-                        allMoves.append(Move(origin, destination))
-        random.shuffle(allMoves)
-        return allMoves
-
-                
-        
-    def getMoves(self, board, position: Position) -> list:
-        return board[position.row][position.col].getMoves(board, position)
     
     def update(self) -> None:
         super().update()
@@ -193,5 +143,61 @@ class ChessBoard(tk.Tk):
             for pos in self.positions[repr]:
                 self.canvas.create_image(pos.col + 8,pos.row + 8,anchor=tk.NW,image=self.pieces[repr] ) 
 
+class ChessBoard():
+    def __init__(self) -> None:
+
+        self.pieceSteps = {"p": 1, "r": 8, "b": 8, "n": 1, "q": 8, "k": 1}
+        self.pieceDirection = {
+            "p": [Direction(1, 0)],
+            "r": [Direction(1, 0), Direction(-1, 0), Direction(0, 1), Direction(0, -1)],
+            "b": [Direction(1, 1), Direction(-1, 1), Direction(1, -1), Direction(-1, -1)],
+            "n": [Direction(2, 1), Direction(-2, 1), Direction(2, -1), Direction(-2, -1),
+                  Direction(1, 2), Direction(-1, 2), Direction(1, -2), Direction(-1, -2)],
+        }
+        self.pieceDirection["q"] = self.pieceDirection["r"] + self.pieceDirection["b"] 
+        self.pieceDirection["k"] = self.pieceDirection["q"]
+
+        self.isBlackTurn = True
+        self.board = self.initBoard()     
+
+    def initBoard(self):
+        fen = "rnbkqbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBKQBNR"
+        board = [[None] * 8 for _ in range(8)]
+        for row, row_fen in enumerate(fen.split("/")):
+            col = 0
+            for ch in row_fen:
+                if (ch.isdigit()):
+                    col += int(ch)
+                else:
+                    board[row][col] = ChessPiece(ch, self.pieceDirection[ch.lower()], self.pieceSteps[ch.lower()])
+                    col += 1
+        return board 
+        
+    def movePeice(self, move: Move, board = None):        
+        if board is None:
+            board = self.board
+        board[move.destination.row][move.destination.col] = board[move.origin.row][move.origin.col]
+        board[move.origin.row][move.origin.col] = None
+        self.isBlackTurn = not self.isBlackTurn
+
+    def getlAllMoves(self, board, isBlackTurn: bool) -> list:
+        allMoves = []
+        for i, row in enumerate(board):
+            for j, cell in enumerate(row):
+                if cell != None and (isBlackTurn == cell.__repr__().islower()):
+                    origin = Position(i, j)
+                    for destination in self.getMoves(origin, board):
+                        allMoves.append(Move(origin, destination))
+        random.shuffle(allMoves)
+        return allMoves        
+        
+    def getMoves(self, position: Position, board = None) -> list:
+        if board is None:
+            board = self.board
+        return board[position.row][position.col].getMoves(board, position)
+    
+    def getBestMove(self):
+         return get_best_move(self.board, self.isBlackTurn, self.getlAllMoves, self.movePeice)   
+
 if __name__ == "__main__":
-    board = ChessBoard()
+    ChessGame()
