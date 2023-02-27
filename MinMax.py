@@ -4,8 +4,6 @@ import copy
 def get_best_move(board: list, isBlackTurn: bool, getAllMoves, movePeice, depth = 3) -> list:
     return max(board, isBlackTurn, getAllMoves, movePeice, depth)[1]
 
-
-
 def max(board: list, isBlackTurn: bool, getAllMoves, movePeice, depth: int) -> int:
     if depth == 0:
         return score(board, isBlackTurn), None
@@ -13,12 +11,21 @@ def max(board: list, isBlackTurn: bool, getAllMoves, movePeice, depth: int) -> i
     maxScore = -float("inf")
     bestMove = None
     for move in getAllMoves(board, isBlackTurn):
-        boardCopy = copy.deepcopy(board)
-        movePeice(move, boardCopy)
-        moveScore, _ = min(boardCopy, not isBlackTurn, getAllMoves, movePeice, depth-1)
+
+ 
+        prev = board[move.destination.row][move.destination.col]
+        board[move.destination.row][move.destination.col] = board[move.origin.row][move.origin.col]
+        board[move.origin.row][move.origin.col] = None
+
+        moveScore, _ = min(board, not isBlackTurn, getAllMoves, movePeice, depth-1)
         if moveScore > maxScore:
             maxScore = moveScore
             bestMove = move
+        
+        board[move.origin.row][move.origin.col] = board[move.destination.row][move.destination.col]
+        board[move.destination.row][move.destination.col] = prev
+
+
     return maxScore, bestMove
 
 def min(board: list, isBlackTurn: bool, getAllMoves, movePeice, depth: int) -> int:
@@ -28,12 +35,18 @@ def min(board: list, isBlackTurn: bool, getAllMoves, movePeice, depth: int) -> i
     minScore = float("inf")
     bestMove = None
     for move in getAllMoves(board, isBlackTurn):
-        boardCopy = copy.deepcopy(board)
-        movePeice(move, boardCopy)
-        moveScore, _ = max(boardCopy, not isBlackTurn, getAllMoves, movePeice, depth-1)
+        
+        prev = board[move.destination.row][move.destination.col]
+        board[move.destination.row][move.destination.col] = board[move.origin.row][move.origin.col]
+        board[move.origin.row][move.origin.col] = None
+
+        moveScore, _ = max(board, not isBlackTurn, getAllMoves, movePeice, depth-1)
         if moveScore < minScore:
             minScore = moveScore          
             bestMove = move
+        
+        board[move.origin.row][move.origin.col] = board[move.destination.row][move.destination.col]
+        board[move.destination.row][move.destination.col] = prev
 
     return minScore, bestMove
 

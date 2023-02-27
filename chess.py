@@ -122,7 +122,7 @@ class ChessGame(tk.Tk):
         if  0 <= row < 8 and 0 <= col < 8:
             clickPosition = Position(row, col)
             piece = self.chessBoard.board[clickPosition.row][clickPosition.col]
-            if self.selectedCell is None and piece != None and piece.__repr__().islower() == self.chessBoard.isBlackTurn:
+            if self.selectedCell is None and piece != None and (piece.__repr__().islower() == self.chessBoard.isBlackTurn):
                 self.selectedCell = clickPosition
                 self.move_suggestions = self.chessBoard.getMoves(clickPosition)
             else:
